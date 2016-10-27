@@ -44,4 +44,19 @@ public class LongKeyTable<VALUE>
     {
         return new LongKeyTable<>( newCapacity, singleValue );
     }
+
+    @Override
+    public String toString()
+    {
+        int size = size();
+        StringBuilder builder = new StringBuilder( getClass().getName() );
+        builder.append( ":size:" ).append( size );
+        builder.append( ",content:[" );
+        for ( int i = 0; i < size; i++ )
+        {
+            builder.append( key( i ) ).append( ", " );
+        }
+        builder.append( "]" );
+        return builder.toString();
+    }
 }

@@ -120,13 +120,6 @@ public abstract class PowerOfTwoQuantizedTable<VALUE> implements Table<VALUE>
     protected abstract Table<VALUE> newInstance( int newCapacity );
 
     @Override
-    public String toString()
-    {
-        return format( "hopscotch-table[%s|capacity:%d, size:%d, usage:%f]", getClass().getSimpleName(),
-                capacity, size, size/((double)capacity) );
-    }
-
-    @Override
     public void close()
     {   // Nothing to do by default
     }

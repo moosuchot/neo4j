@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 
 import org.neo4j.collection.primitive.Primitive;
 import org.neo4j.collection.primitive.PrimitiveCollection;
@@ -483,9 +484,22 @@ public class PrimitiveCollectionEqualityTest
 
     private void assertEquals( PrimitiveCollection a, PrimitiveCollection b )
     {
+        long start = System.nanoTime();
         assertThat( a, is( equalTo( b ) ) );
+        long check1 = System.nanoTime();
         assertThat( b, is( equalTo( a ) ) );
+        long check2 = System.nanoTime();
         assertThat( a.hashCode(), is( equalTo( b.hashCode() ) ) );
+        long finishTime = System.nanoTime();
+        long equalityCheckTime = TimeUnit.NANOSECONDS.toMillis( finishTime - start );
+        if ( equalityCheckTime > 5 )
+        {
+            System.out.println( "first check: " + TimeUnit.NANOSECONDS.toMillis( check1 - start ) );
+            System.out.println( "second check: " + TimeUnit.NANOSECONDS.toMillis( check2 - check1 ) );
+            System.out.println( "equality check: " + equalityCheckTime );
+            System.out.println( "a: (" + a.getClass().getName() + ") " + a );
+            System.out.println( "b: (" + b.getClass().getName() + ")" + b );
+        }
     }
 
     @Theory

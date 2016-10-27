@@ -93,10 +93,14 @@ public class PrimitiveIntObjectHashMap<VALUE> extends AbstractIntHopScotchCollec
     {
         if ( typeAndSizeEqual( other ) )
         {
-            PrimitiveIntObjectHashMap<?> that = (PrimitiveIntObjectHashMap<?>) other;
-            IntObjEquality<VALUE> equality = new IntObjEquality<VALUE>( that );
-            visitEntries( equality );
-            return equality.isEqual();
+            if (size() > 0)
+            {
+                PrimitiveIntObjectHashMap<?> that = (PrimitiveIntObjectHashMap<?>) other;
+                IntObjEquality<VALUE> equality = new IntObjEquality<VALUE>( that );
+                visitEntries( equality );
+                return equality.isEqual();
+            }
+            return true;
         }
         return false;
     }
@@ -129,7 +133,10 @@ public class PrimitiveIntObjectHashMap<VALUE> extends AbstractIntHopScotchCollec
     public int hashCode()
     {
         HashCodeComputer<VALUE> hash = new HashCodeComputer<VALUE>();
-        visitEntries( hash );
+        if (size() > 0)
+        {
+            visitEntries( hash );
+        }
         return hash.hashCode();
     }
 

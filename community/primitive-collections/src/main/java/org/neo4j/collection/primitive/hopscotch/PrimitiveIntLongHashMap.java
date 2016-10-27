@@ -109,10 +109,14 @@ public class PrimitiveIntLongHashMap extends AbstractIntHopScotchCollection<long
     {
         if ( typeAndSizeEqual( other ) )
         {
-            PrimitiveIntLongHashMap that = (PrimitiveIntLongHashMap) other;
-            IntLongEquality equality = new IntLongEquality( that );
-            visitEntries( equality );
-            return equality.isEqual();
+            if (size() > 0)
+            {
+                PrimitiveIntLongHashMap that = (PrimitiveIntLongHashMap) other;
+                IntLongEquality equality = new IntLongEquality( that );
+                visitEntries( equality );
+                return equality.isEqual();
+            }
+            return true;
         }
         return false;
     }
@@ -144,7 +148,10 @@ public class PrimitiveIntLongHashMap extends AbstractIntHopScotchCollection<long
     public int hashCode()
     {
         HashCodeComputer hash = new HashCodeComputer();
-        visitEntries( hash );
+        if (size() > 0)
+        {
+            visitEntries( hash );
+        }
         return hash.hashCode();
     }
 

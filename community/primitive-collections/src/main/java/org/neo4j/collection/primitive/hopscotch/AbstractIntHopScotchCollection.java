@@ -19,6 +19,8 @@
  */
 package org.neo4j.collection.primitive.hopscotch;
 
+import java.util.concurrent.TimeUnit;
+
 import org.neo4j.collection.primitive.PrimitiveIntCollection;
 import org.neo4j.collection.primitive.PrimitiveIntCollections.PrimitiveIntBaseIterator;
 import org.neo4j.collection.primitive.PrimitiveIntIterator;
@@ -49,15 +51,24 @@ public abstract class AbstractIntHopScotchCollection<VALUE> extends AbstractHopS
     @Override
     public <E extends Exception> void visitKeys( PrimitiveIntVisitor<E> visitor ) throws E
     {
+        long startTime = System.nanoTime();
         int capacity = table.capacity();
         long nullKey = table.nullKey();
-        for ( int i = 0; i < capacity; i++ )
+        try
         {
-            long key = table.key( i );
-            if ( key != nullKey && visitor.visited( (int) key ) )
+            for ( int i = 0; i < capacity; i++ )
             {
-                return;
+                long key = table.key( i );
+                if ( key != nullKey && visitor.visited( (int) key ) )
+                {
+                    return;
+                }
             }
+        }
+        finally
+        {
+            System.out.println( TimeUnit.NANOSECONDS.toMillis( System.nanoTime() - startTime) + " to visit keys in" +
+                    getClass() + ". Reported capacity: " + capacity);
         }
     }
 }

@@ -31,9 +31,11 @@ import java.nio.ByteOrder;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -327,12 +329,18 @@ public final class UnsafeUtil
      */
     public static long allocateMemory( long sizeInBytes )
     {
+        long startTime = System.nanoTime();
         final long pointer = unsafe.allocateMemory( sizeInBytes );
         if ( DIRTY_MEMORY )
         {
             setMemory( pointer, sizeInBytes, (byte) 0xA5 );
         }
         addAllocatedPointer( pointer, sizeInBytes );
+        long millis = TimeUnit.NANOSECONDS.toMillis( System.nanoTime() - startTime );
+        if ( millis > 1 )
+        {
+            System.out.println( "allocation time: " + millis );
+        }
         return pointer;
     }
 
@@ -379,15 +387,38 @@ public final class UnsafeUtil
         }
     }
 
-    private static final ConcurrentSkipListMap<Long, Long> pointers = new ConcurrentSkipListMap<>();
+    private static final ConcurrentSkipListMap<Long, AllocationRecord> pointers = new ConcurrentSkipListMap<>();
     private static final FreeTrace[] freeTraces = CHECK_NATIVE_ACCESS? new FreeTrace[4096] : null;
     private static final AtomicLong freeTraceCounter = new AtomicLong();
+
+    private static final class AllocationRecord
+    {
+        private long sizeInBytes;
+        private Exception exception;
+
+        public AllocationRecord( long sizeInBytes, Exception exception )
+        {
+            this.sizeInBytes = sizeInBytes;
+            this.exception = exception;
+        }
+
+        public long getSizeInBytes()
+        {
+            return sizeInBytes;
+        }
+
+        public Exception getException()
+        {
+            return exception;
+        }
+    }
 
     private static void addAllocatedPointer( long pointer, long sizeInBytes )
     {
         if ( CHECK_NATIVE_ACCESS )
         {
-            pointers.put( pointer, sizeInBytes );
+            pointers.put( pointer, new AllocationRecord( sizeInBytes, new RuntimeException() ) );
+
         }
     }
 
@@ -401,8 +432,8 @@ public final class UnsafeUtil
 
     private static void doCheckFree( long pointer )
     {
-        Long size = pointers.remove( pointer );
-        if ( size == null )
+        AllocationRecord record = pointers.remove( pointer );
+        if ( record == null )
         {
             StringBuilder sb = new StringBuilder( format( "Bad free: 0x%x, valid pointers are:", pointer ) );
             pointers.forEach( (k,v) -> sb.append( '\n' ).append( k ) );
@@ -410,7 +441,7 @@ public final class UnsafeUtil
         }
         long count = freeTraceCounter.getAndIncrement();
         int idx = (int) (count & 4095);
-        freeTraces[idx] = new FreeTrace( pointer, size, count );
+        freeTraces[idx] = new FreeTrace( pointer, record.getSizeInBytes(), count );
     }
 
     private static void checkAccess( long pointer, int size )
@@ -423,38 +454,70 @@ public final class UnsafeUtil
 
     private static void doCheckAccess( long pointer, int size )
     {
-        long now = System.nanoTime();
-        Map.Entry<Long,Long> fentry = pointers.floorEntry( pointer + size );
-        Map.Entry<Long,Long> centry = pointers.ceilingEntry( pointer );
-        if ( fentry == null || fentry.getKey() + fentry.getValue() < pointer + size )
+        long start = System.nanoTime();
+        Map.Entry<Long,AllocationRecord> fentry = pointers.floorEntry( pointer + size );
+        Map.Entry<Long,AllocationRecord> centry = pointers.ceilingEntry( pointer );
+        if ( fentry == null || fentry.getKey() + fentry.getValue() .getSizeInBytes() < pointer + size )
         {
-            long faddr = fentry == null? 0 : fentry.getKey();
-            long fsize = fentry == null? 0 : fentry.getValue();
-            long foffset = pointer - (faddr + fsize);
-            long caddr = centry == null? 0 : centry.getKey();
-            long csize = centry == null? 0 : centry.getValue();
-            long coffset = caddr - (pointer + size);
-            boolean floorIsNearest = foffset < coffset;
-            long naddr = floorIsNearest? faddr : caddr;
-            long nsize = floorIsNearest? fsize : csize;
-            long noffset = floorIsNearest? foffset : coffset;
-            List<FreeTrace> recentFrees = Arrays.stream( freeTraces )
-                                                .filter( trace -> trace != null )
-                                                .filter( trace -> trace.contains( pointer ) )
-                                                .sorted()
-                                                .collect( Collectors.toList() );
-            AssertionError error = new AssertionError( format(
-                    "Bad access at address 0x%x with size %s, nearest valid allocation is " +
-                    "0x%x (%s bytes, off by %s bytes). " +
-                    "Recent relevant frees (of %s) are attached as suppressed exceptions.",
-                    pointer, size, naddr, nsize, noffset, freeTraceCounter.get() ) );
-            for ( FreeTrace recentFree : recentFrees )
-            {
-                recentFree.referenceTime = now;
-                error.addSuppressed( recentFree );
-            }
-            throw error;
+            throwException( pointer, size, start, fentry, centry );
+            return;
         }
+        checkTime( start );
+    }
+
+    private static void checkTime( long start )
+    {
+        long millis = TimeUnit.NANOSECONDS.toMillis( System.nanoTime() - start );
+        if ( millis > 0 )
+        {
+            if ( millis > 20 )
+            {
+                System.out.println( "check access time: " + millis + ", map size: " + pointers.size() );
+                System.out.println( "Known allocations:" );
+                Collection<AllocationRecord> records = pointers.values();
+                for ( AllocationRecord record : records )
+                {
+                    record.getException().printStackTrace( System.out );
+                    System.out.println( "" );
+                }
+                System.out.println( "Done." );
+            }
+            else
+            {
+                System.out.println( "check access time: " + millis + ", map size: " + pointers.size() );
+            }
+        }
+    }
+
+    private static void throwException( long pointer, int size, long start, Map.Entry<Long,AllocationRecord> fentry,
+            Map.Entry<Long,AllocationRecord> centry )
+    {
+        long faddr = fentry == null? 0 : fentry.getKey();
+        long fsize = fentry == null? 0 : fentry.getValue().getSizeInBytes();
+        long foffset = pointer - (faddr + fsize);
+        long caddr = centry == null? 0 : centry.getKey();
+        long csize = centry == null? 0 : centry.getValue().getSizeInBytes();
+        long coffset = caddr - (pointer + size);
+        boolean floorIsNearest = foffset < coffset;
+        long naddr = floorIsNearest? faddr : caddr;
+        long nsize = floorIsNearest? fsize : csize;
+        long noffset = floorIsNearest? foffset : coffset;
+        List<FreeTrace> recentFrees = Arrays.stream( freeTraces )
+                                            .filter( trace -> trace != null )
+                                            .filter( trace -> trace.contains( pointer ) )
+                                            .sorted()
+                                            .collect( Collectors.toList() );
+        AssertionError error = new AssertionError( format(
+                "Bad access at address 0x%x with size %s, nearest valid allocation is " +
+                "0x%x (%s bytes, off by %s bytes). " +
+                "Recent relevant frees (of %s) are attached as suppressed exceptions.",
+                pointer, size, naddr, nsize, noffset, freeTraceCounter.get() ) );
+        for ( FreeTrace recentFree : recentFrees )
+        {
+            recentFree.referenceTime = start;
+            error.addSuppressed( recentFree );
+        }
+        throw error;
     }
 
     /**

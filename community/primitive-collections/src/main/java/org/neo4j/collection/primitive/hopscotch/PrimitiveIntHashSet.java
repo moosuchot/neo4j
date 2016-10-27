@@ -88,10 +88,14 @@ public class PrimitiveIntHashSet extends AbstractIntHopScotchCollection<Object> 
     {
         if ( typeAndSizeEqual( other ) )
         {
-            PrimitiveIntHashSet that = (PrimitiveIntHashSet) other;
-            IntKeyEquality equality = new IntKeyEquality( that );
-            visitKeys( equality );
-            return equality.isEqual();
+            if (size() > 0)
+            {
+                PrimitiveIntHashSet that = (PrimitiveIntHashSet) other;
+                IntKeyEquality equality = new IntKeyEquality( that );
+                visitKeys( equality );
+                return equality.isEqual();
+            }
+            return true;
         }
         return false;
     }
@@ -123,7 +127,10 @@ public class PrimitiveIntHashSet extends AbstractIntHopScotchCollection<Object> 
     public int hashCode()
     {
         HashCodeComputer hash = new HashCodeComputer();
-        visitKeys( hash );
+        if ( size() > 0 )
+        {
+            visitKeys( hash );
+        }
         return hash.hashCode();
     }
 

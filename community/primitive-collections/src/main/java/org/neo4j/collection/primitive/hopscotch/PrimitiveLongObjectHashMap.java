@@ -93,10 +93,14 @@ public class PrimitiveLongObjectHashMap<VALUE> extends AbstractLongHopScotchColl
     {
         if ( typeAndSizeEqual( other ) )
         {
-            PrimitiveLongObjectHashMap<?> that = (PrimitiveLongObjectHashMap<?>) other;
-            LongObjEquality<VALUE> equality = new LongObjEquality<VALUE>( that );
-            visitEntries( equality );
-            return equality.isEqual();
+            if (size() > 0)
+            {
+                PrimitiveLongObjectHashMap<?> that = (PrimitiveLongObjectHashMap<?>) other;
+                LongObjEquality<VALUE> equality = new LongObjEquality<VALUE>( that );
+                visitEntries( equality );
+                return equality.isEqual();
+            }
+            return true;
         }
         return false;
     }
@@ -129,7 +133,10 @@ public class PrimitiveLongObjectHashMap<VALUE> extends AbstractLongHopScotchColl
     public int hashCode()
     {
         HashCodeComputer<VALUE> hash = new HashCodeComputer<VALUE>();
-        visitEntries( hash );
+        if (size() > 0)
+        {
+            visitEntries( hash );
+        }
         return hash.hashCode();
     }
 

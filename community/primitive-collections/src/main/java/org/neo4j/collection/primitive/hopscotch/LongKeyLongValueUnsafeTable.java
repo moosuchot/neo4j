@@ -19,6 +19,8 @@
  */
 package org.neo4j.collection.primitive.hopscotch;
 
+import java.util.Arrays;
+
 import org.neo4j.unsafe.impl.internal.dragons.UnsafeUtil;
 
 public class LongKeyLongValueUnsafeTable extends UnsafeTable<long[]>
@@ -80,5 +82,20 @@ public class LongKeyLongValueUnsafeTable extends UnsafeTable<long[]>
     protected Table<long[]> newInstance( int newCapacity )
     {
         return new LongKeyLongValueUnsafeTable( newCapacity );
+    }
+
+    @Override
+    public String toString()
+    {
+        int size = size();
+        StringBuilder builder = new StringBuilder( getClass().getName() );
+        builder.append( ":size:" ).append( size );
+        builder.append( ":[" );
+        for ( int i = 0; i < size; i++ )
+        {
+            builder.append( Arrays.toString( value( i ) ) ).append( ", " );
+        }
+        builder.append( "]" );
+        return builder.toString();
     }
 }

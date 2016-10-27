@@ -88,10 +88,14 @@ public class PrimitiveLongHashSet extends AbstractLongHopScotchCollection<Object
     {
         if ( typeAndSizeEqual( other ) )
         {
-            PrimitiveLongHashSet that = (PrimitiveLongHashSet) other;
-            LongKeyEquality equality = new LongKeyEquality( that );
-            visitKeys( equality );
-            return equality.isEqual();
+            if (size() > 0)
+            {
+                PrimitiveLongHashSet that = (PrimitiveLongHashSet) other;
+                LongKeyEquality equality = new LongKeyEquality( that );
+                visitKeys( equality );
+                return equality.isEqual();
+            }
+            return true;
         }
         return false;
     }
@@ -123,7 +127,10 @@ public class PrimitiveLongHashSet extends AbstractLongHopScotchCollection<Object
     public int hashCode()
     {
         HashCodeComputer hash = new HashCodeComputer();
-        visitKeys( hash );
+        if (size() > 0)
+        {
+            visitKeys( hash );
+        }
         return hash.hashCode();
     }
 
