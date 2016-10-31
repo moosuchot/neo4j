@@ -456,9 +456,9 @@ public final class UnsafeUtil
     {
         long start = System.nanoTime();
         Map.Entry<Long,AllocationRecord> fentry = pointers.floorEntry( pointer + size );
-        Map.Entry<Long,AllocationRecord> centry = pointers.ceilingEntry( pointer );
-        if ( fentry == null || fentry.getKey() + fentry.getValue() .getSizeInBytes() < pointer + size )
+        if ( fentry == null || fentry.getKey() + fentry.getValue().getSizeInBytes() < pointer + size )
         {
+            Map.Entry<Long,AllocationRecord> centry = pointers.ceilingEntry( pointer );
             throwException( pointer, size, start, fentry, centry );
             return;
         }
